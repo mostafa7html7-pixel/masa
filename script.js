@@ -355,7 +355,7 @@ const renderGallery = () => {
 
         if (card) {
             // البطاقة موجودة: نقوم بتحديث المعلومات فقط (اللايكات)
-            updateCardData(card, photoData);
+            updateCardData(card, photoData, true); // True لتحديث رابط النقر أيضاً
             
             // التحقق الذكي: هل البطاقة في مكانها الصحيح؟
             // إذا كان العنصر الحالي في هذا الفهرس ليس هو بطاقتنا، نقوم بتحريكها
@@ -431,37 +431,29 @@ const createCard = (photoData) => {
         card.appendChild(dateDiv);
     }
 
-    // فتح الصورة
-    card.addEventListener('click', () => {
-        modalImage.src = photoData.url;
-        
-        // تحديث رابط التحميل
-        downloadBtn.href = photoData.url;
-        
-        // عرض التاريخ في المودال أيضاً
-        if (photoData.timestamp && modalDate) {
-            const dateObj = new Date(photoData.timestamp);
-            const timeStr = new Intl.DateTimeFormat('ar-EG', { hour: 'numeric', minute: 'numeric' }).format(dateObj);
-            const dateStr = new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(dateObj);
-            const relativeTime = getRelativeTime(photoData.timestamp);
-            
-            modalDate.innerHTML = `
-                <span class="date-relative">${relativeTime}</span>
-                <span class="date-details">${timeStr} | ${dateStr}</span>
-            `;
-        }
-        
-        imageModal.classList.add('active');
-    });
-
-    // تحديث البيانات الأولية (بما في ذلك زر اللايك)
-    updateCardData(card, photoData);
+    // تحديث البيانات الأولية (بما في ذلك زر اللايك ورابط النقر)
+    updateCardData(card, photoData, true);
 
     return card;
 };
 
 // تحديث بيانات البطاقة (خاصة اللايكات) دون إعادة بناء العنصر
-const updateCardData = (card, photoData) => {
+const updateCardData = (card, photoData, updateClickEvent = false) => {
+    // تحديث الصورة نفسها إذا لزم الأمر (في حال تغيرت البيانات)
+    const img = card.querySelector('img');
+    if (img && img.src !== (photoData.mediumUrl || photoData.url)) {
+         img.src = photoData.mediumUrl || photoData.url;
+    }
+
+    // تحديث حدث النقر (مهم جداً عند إعادة استخدام العناصر أو إعادة الترتيب)
+    if (updateClickEvent) {
+        // إزالة المستمعين القدامى عن طريق استنساخ العنصر (أو تحديث خاصية مخصصة)
+        // الطريقة الأفضل والأسرع هنا هي تخزين البيانات في العنصر واستخدامها،
+        // أو ببساطة تحديث الدالة عند النقر.
+        // لتبسيط الأمر، سنعيد تعيين وظيفة onclick مباشرة (تستبدل المستمعين السابقين من نوع onclick)
+        card.onclick = () => openImageModal(photoData);
+    }
+
     const likeContainer = card.querySelector('.like-container');
     // التحقق مما إذا كان المستخدم الحالي قد قام بعمل لايك سابقاً من خلال القائمة المحفوظة في الداتابيز
     const isLiked = photoData.likesUsers && photoData.likesUsers[currentUserUid];
@@ -538,6 +530,31 @@ const updateCardData = (card, photoData) => {
     }
     
     countSpan.textContent = likesCount > 0 ? likesCount : '';
+};
+
+// دالة منفصلة لفتح المودال
+const openImageModal = (photoData) => {
+    modalImage.src = photoData.url;
+    
+    // تحديث رابط التحميل
+    downloadBtn.href = photoData.url;
+    
+    // عرض التاريخ في المودال أيضاً
+    if (photoData.timestamp && modalDate) {
+        const dateObj = new Date(photoData.timestamp);
+        const timeStr = new Intl.DateTimeFormat('ar-EG', { hour: 'numeric', minute: 'numeric' }).format(dateObj);
+        const dateStr = new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(dateObj);
+        const relativeTime = getRelativeTime(photoData.timestamp);
+        
+        modalDate.innerHTML = `
+            <span class="date-relative">${relativeTime}</span>
+            <span class="date-details">${timeStr} | ${dateStr}</span>
+        `;
+    } else if (modalDate) {
+         modalDate.innerHTML = '';
+    }
+
+    imageModal.classList.add('active');
 };
 
 // حدث التمرير للتحميل اللانهائي
