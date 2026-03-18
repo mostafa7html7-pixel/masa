@@ -719,12 +719,13 @@ input[type="file"] {
     max-width: 600px; /* لا تصبح عريضة جداً على الكمبيوتر */
     background: rgba(20, 20, 25, 0.95); /* خلفية داكنة للنافذة نفسها */
     transform: translateY(50px) scale(0.9); /* تبدأ من الأسفل ومصغرة */
-    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* حركة ناعمة مع ارتداد خفيف */
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); /* حركة أسرع وأكثر سلاسة */
     display: flex;
     flex-direction: column; 
     overflow: hidden; /* منع المحتوى من الخروج عن الإطار */
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    will-change: transform; /* تحسين الأداء */
 }
 
 .modal-overlay.active .modal-content {

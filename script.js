@@ -543,10 +543,29 @@ const updateCardData = (card, photoData, updateClickEvent = false) => {
 
 // دالة منفصلة لفتح المودال
 const openImageModal = (photoData) => {
-    modalImage.src = photoData.url;
+    // 1. إعادة تعيين التكبير
+    modalImage.classList.remove('zoomed');
+    
+    // 2. عرض النسخة المتوسطة فوراً كـ Placeholder لتسريع الفتح
+    const placeholder = photoData.mediumUrl || photoData.thumbUrl || photoData.url;
+    modalImage.src = placeholder;
+    
+    // 3. تطبيق تأثير ضبابي مؤقت
+    modalImage.style.transition = 'filter 0.3s ease, transform 0.3s ease';
+    modalImage.style.filter = 'blur(10px)';
     
     // تحديث رابط التحميل
     downloadBtn.href = photoData.url;
+    
+    // 4. تحميل الصورة عالية الدقة في الخلفية
+    const highResImg = new Image();
+    highResImg.src = photoData.url;
+    highResImg.onload = () => {
+        if (imageModal.classList.contains('active') && downloadBtn.href === photoData.url) {
+            modalImage.src = photoData.url;
+            modalImage.style.filter = 'blur(0px)';
+        }
+    };
     
     // عرض التاريخ في المودال أيضاً
     if (photoData.timestamp && modalDate) {
