@@ -546,13 +546,14 @@ const openImageModal = (photoData) => {
     // 1. إعادة تعيين التكبير
     modalImage.classList.remove('zoomed');
     
-    // 2. عرض النسخة المتوسطة فوراً كـ Placeholder لتسريع الفتح
-    const placeholder = photoData.mediumUrl || photoData.thumbUrl || photoData.url;
-    modalImage.src = placeholder;
-    
-    // 3. تطبيق تأثير ضبابي مؤقت
+    // 2. تطبيق تأثير ضبابي مؤقت (قبل وضع الصورة لتجنب الوميض)
     modalImage.style.transition = 'filter 0.3s ease, transform 0.3s ease';
     modalImage.style.filter = 'blur(10px)';
+    
+    // 3. عرض النسخة المتوسطة فوراً كـ Placeholder (لأنها محملة مسبقاً في الصفحة)
+    // هذا يجعل الفتح فورياً بدون شاشة سوداء
+    const placeholder = photoData.mediumUrl || photoData.thumbUrl || photoData.url;
+    modalImage.src = placeholder;
     
     // تحديث رابط التحميل
     downloadBtn.href = photoData.url;
