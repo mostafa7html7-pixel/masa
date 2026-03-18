@@ -31,6 +31,10 @@
     margin: 0;
     padding: 0;
     font-family: 'Tajawal', sans-serif;
+    /* إزالة المربع الأزرق عند النقر في الموبايل */
+    -webkit-tap-highlight-color: transparent;
+    /* إزالة الإطار الافتراضي عند التركيز */
+    outline: none;
 }
 
 body {
@@ -172,6 +176,88 @@ input[type="file"] {
     100% { transform: scale(0.95); opacity: 0.7; }
 }
 
+/* --- قائمة الهيدر المنسدلة --- */
+.header-menu-container {
+    position: relative;
+}
+
+.header-dropdown {
+    position: absolute;
+    top: 120%;
+    left: 0; /* لأن الموقع RTL، الصفر هو اليسار */
+    background: rgba(30, 30, 35, 0.95);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 180px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.header-dropdown.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: transparent;
+    border: none;
+    width: 100%;
+    padding: 10px 12px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.dropdown-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.dropdown-item.active {
+    color: var(--primary-color);
+}
+
+.dropdown-item svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* زر الإشعارات / الإعدادات في الهيدر */
+.header-icon-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.header-icon-btn:hover, .header-icon-btn.active {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
 /* Status message styling */
 /* New Upload Bar Styles */
 .upload-container {
@@ -196,44 +282,6 @@ input[type="file"] {
     /* ظل احترافي متعدد الطبقات */
     box-shadow: 0 20px 40px -5px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
-/* تصميم التلميح (Tooltip) */
-.upload-tooltip {
-    position: absolute;
-    bottom: 70px; /* فوق الحاوية */
-    right: 20px;
-    background: var(--primary-color);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 12px;
-    font-size: 0.9rem;
-    font-weight: bold;
-    pointer-events: none;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(10px);
-    transition: all 0.4s ease;
-    box-shadow: 0 5px 15px rgba(109, 93, 252, 0.4);
-}
-
-.upload-tooltip.show {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
-
-/* سهم صغير للتلميح */
-.upload-tooltip::after {
-    content: '';
-    position: absolute;
-    bottom: -6px;
-    right: 20px;
-    width: 0;
-    height: 0;
-    border-left: 6px solid transparent;
-    border-right: 6px solid transparent;
-    border-top: 6px solid var(--primary-color);
 }
 
 .upload-container:hover {
@@ -811,4 +859,73 @@ input[type="file"] {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* عمودين للموبايل لعرض أفضل */
         gap: 15px; /* تقليل المسافات */
     }
+}
+
+/* --- شاشة البداية (Splash Screen) --- */
+#splash-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #1a1a2e; /* نفس لون خلفية الـ Manifest */
+    z-index: 9999; /* أعلى طبقة في الموقع */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.6s ease-out, visibility 0.6s;
+}
+
+#splash-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.splash-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    animation: fadeIn 0.8s ease-out;
+}
+
+.splash-icon {
+    color: #e056fd;
+    width: 64px;
+    height: 64px;
+    filter: drop-shadow(0 0 15px rgba(224, 86, 253, 0.6));
+}
+
+.splash-content h1 {
+    font-family: 'Tajawal', sans-serif;
+    font-size: 2rem;
+    color: white;
+    letter-spacing: 2px;
+}
+
+.loading-bar {
+    width: 120px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+}
+
+.loading-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 40%;
+    background: var(--primary-color);
+    border-radius: 2px;
+    animation: loadingMove 1.5s infinite ease-in-out;
+}
+
+@keyframes loadingMove {
+    0% { left: -40%; }
+    50% { left: 100%; }
+    100% { left: -40%; }
 }
