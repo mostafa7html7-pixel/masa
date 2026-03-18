@@ -98,6 +98,18 @@
             <div class="modal-header">
                 <div id="modal-date" class="modal-date-container"></div>
                 <div class="modal-actions">
+                    <!-- حاوية التحكم في سرعة العرض -->
+                    <div class="speed-control-container">
+                        <button id="slideshow-speed-btn" class="action-btn" title="سرعة العرض">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        </button>
+                        <div id="slideshow-speed-menu" class="speed-menu-popup">
+                            <button data-speed="5000" class="speed-option">بطيء</button>
+                            <button data-speed="3000" class="speed-option active">عادي</button>
+                            <button data-speed="1500" class="speed-option">سريع</button>
+                        </div>
+                    </div>
+                    <button id="slideshow-btn" class="action-btn" title="تشغيل العرض التلقائي"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></button>
                     <a id="download-btn" class="action-btn" href="#" download title="حفظ الصورة"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></a>
                     <button id="modal-close-btn" class="action-btn close-btn">&times;</button>
                 </div>
@@ -105,9 +117,17 @@
             
             <!-- جسم النافذة: الصورة -->
             <div class="modal-body">
+                <!-- إرشادات التمرير -->
+                <div id="swipe-instruction" class="swipe-instruction">
+                    <span>👈 مرر لليسار لرؤية المزيد</span>
+                </div>
                 <img src="" alt="عرض مكبر للصورة" id="modal-image" class="modal-img">
             </div>
         </div>
+        <!-- أزرار التنقل تم نقلها للخارج لتظهر بجانب النافذة -->
+        <button id="next-btn" class="nav-btn next" title="الصورة التالية">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
     </div>
 
     <!-- حاوية الإشعارات -->

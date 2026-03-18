@@ -40,6 +40,12 @@ const galleryDiv = document.getElementById('gallery');
 const imageModal = document.getElementById('image-modal');
 const modalImage = document.getElementById('modal-image');
 const modalDate = document.getElementById('modal-date'); // الحاوية الجديدة في الهيدر
+const prevBtn = document.getElementById('prev-btn'); // تعريف الأزرار
+const nextBtn = document.getElementById('next-btn');
+const slideshowBtn = document.getElementById('slideshow-btn'); // زر العرض التلقائي
+const slideshowSpeedBtn = document.getElementById('slideshow-speed-btn');
+const slideshowSpeedMenu = document.getElementById('slideshow-speed-menu');
+const swipeInstruction = document.getElementById('swipe-instruction'); // عنصر الإرشادات
 const closeModalBtn = document.getElementById('modal-close-btn');
 const downloadBtn = document.getElementById('download-btn');
 const miniPreviewContainer = document.getElementById('mini-preview');
@@ -347,40 +353,40 @@ onValue(photosRef, (snapshot) => {
 
 // دالة المزامنة لعرض المعرض بدون وميض (تحديث العناصر الموجودة وإنشاء الجديدة)
 const renderGallery = () => {
+    // التحسين: استخدام Map لتقليل عمليات البحث في DOM بشكل كبير
     const photosToRender = allPhotosData.slice(0, renderedCount);
-
-    // 1. حذف العناصر التي لم تعد موجودة في القائمة المعروضة
-    const photosIds = new Set(photosToRender.map(p => p.id));
+    const photosToRenderIds = new Set(photosToRender.map(p => p.id));
+    
+    // جلب الكروت الموجودة حالياً في الـ DOM
+    const existingCards = new Map();
     Array.from(galleryDiv.children).forEach(card => {
-        if (!photosIds.has(card.dataset.id)) {
+        if (card.dataset.id) {
+            existingCards.set(card.dataset.id, card);
+        }
+    });
+
+    // 1. حذف البطاقات التي لم تعد موجودة
+    existingCards.forEach((card, id) => {
+        if (!photosToRenderIds.has(id)) {
             card.remove();
         }
     });
 
-    // 2. تحديث أو إنشاء البطاقات
-    // التعديل الجوهري لمنع الوميض: استخدام الفهرس (index) للتحقق من الترتيب
+    // 2. تحديث أو إنشاء البطاقات بالترتيب الصحيح
     photosToRender.forEach((photoData, index) => {
-        let card = galleryDiv.querySelector(`.photo-card[data-id="${photoData.id}"]`);
-
+        let card = existingCards.get(photoData.id);
+        
         if (card) {
-            // البطاقة موجودة: نقوم بتحديث المعلومات فقط (اللايكات)
-            updateCardData(card, photoData, true); // True لتحديث رابط النقر أيضاً
-            
-            // التحقق الذكي: هل البطاقة في مكانها الصحيح؟
-            // إذا كان العنصر الحالي في هذا الفهرس ليس هو بطاقتنا، نقوم بتحريكها
-            const currentChildAtIndex = galleryDiv.children[index];
-            if (currentChildAtIndex !== card) {
-                galleryDiv.insertBefore(card, currentChildAtIndex);
+            // تحديث البيانات إذا كانت موجودة
+            updateCardData(card, photoData, true);
+            // التأكد من الترتيب الصحيح في القائمة
+            if (galleryDiv.children[index] !== card) {
+                galleryDiv.insertBefore(card, galleryDiv.children[index]);
             }
         } else {
-            // البطاقة غير موجودة: نقوم بإنشائها
+            // إنشاء بطاقة جديدة إذا لم تكن موجودة
             card = createCard(photoData);
-            // إضافة العنصر في مكانه الصحيح بدلاً من آخره دائماً
-            if (index < galleryDiv.children.length) {
-                galleryDiv.insertBefore(card, galleryDiv.children[index]);
-            } else {
-                galleryDiv.appendChild(card);
-            }
+            galleryDiv.insertBefore(card, galleryDiv.children[index] || null);
         }
     });
 };
@@ -390,8 +396,8 @@ const createCard = (photoData) => {
     const card = document.createElement('div');
     card.className = 'photo-card';
     card.dataset.id = photoData.id; // تعيين معرف للصورة للرجوع إليه
-    card.dataset.timestamp = photoData.timestamp; // تخزين الوقت للتحديث التلقائي
-    
+    card.dataset.timestamp = photoData.timestamp;
+
     card.style.setProperty('--neon-color', getRandomNeonColor());
 
     const img = document.createElement('img');
@@ -541,24 +547,43 @@ const updateCardData = (card, photoData, updateClickEvent = false) => {
     countSpan.textContent = likesCount > 0 ? likesCount : '';
 };
 
-// دالة منفصلة لفتح المودال
-const openImageModal = (photoData) => {
-    // 1. إعادة تعيين التكبير
+// متغيرات للتنقل بين الصور
+let currentPhotoIndex = 0;
+let touchStartX = 0;
+let touchEndX = 0;
+let slideshowInterval = null; // متغير لتخزين مؤقت العرض التلقائي
+let slideshowSpeed = 3000; // سرعة العرض الافتراضية (3 ثواني)
+
+// دالة لتحديث محتوى المودال (لإعادة استخدامها في التنقل)
+const updateModalContent = (photoData) => {
     modalImage.classList.remove('zoomed');
-    
-    // 2. تطبيق تأثير ضبابي مؤقت (قبل وضع الصورة لتجنب الوميض)
     modalImage.style.transition = 'filter 0.3s ease, transform 0.3s ease';
     modalImage.style.filter = 'blur(10px)';
-    
-    // 3. عرض النسخة المتوسطة فوراً كـ Placeholder (لأنها محملة مسبقاً في الصفحة)
-    // هذا يجعل الفتح فورياً بدون شاشة سوداء
     const placeholder = photoData.mediumUrl || photoData.thumbUrl || photoData.url;
     modalImage.src = placeholder;
-    
-    // تحديث رابط التحميل
     downloadBtn.href = photoData.url;
     
-    // 4. تحميل الصورة عالية الدقة في الخلفية
+    if (photoData.timestamp && modalDate) {
+        const dateObj = new Date(photoData.timestamp);
+        const timeStr = new Intl.DateTimeFormat('ar-EG', { hour: 'numeric', minute: 'numeric' }).format(dateObj);
+        const dateStr = new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(dateObj);
+        const relativeTime = getRelativeTime(photoData.timestamp);
+        modalDate.innerHTML = `<span class="date-relative">${relativeTime}</span><span class="date-details">${timeStr} | ${dateStr}</span>`;
+    } else if (modalDate) {
+         modalDate.innerHTML = '';
+    }
+
+    // تحديث حالة أزرار التنقل (تفعيل/تعطيل حسب الموقع)
+    if (prevBtn && nextBtn) {
+        // جعلنا التنقل دائرياً، لذا الأزرار متاحة دائماً ما دام هناك أكثر من صورة
+        const hasMultiple = allPhotosData.length > 1;
+        prevBtn.style.opacity = hasMultiple ? '1' : '0.3';
+        prevBtn.style.pointerEvents = hasMultiple ? 'auto' : 'none';
+        
+        nextBtn.style.opacity = hasMultiple ? '1' : '0.3';
+        nextBtn.style.pointerEvents = hasMultiple ? 'auto' : 'none';
+    }
+
     const highResImg = new Image();
     highResImg.src = photoData.url;
     highResImg.onload = () => {
@@ -567,24 +592,128 @@ const openImageModal = (photoData) => {
             modalImage.style.filter = 'blur(0px)';
         }
     };
-    
-    // عرض التاريخ في المودال أيضاً
-    if (photoData.timestamp && modalDate) {
-        const dateObj = new Date(photoData.timestamp);
-        const timeStr = new Intl.DateTimeFormat('ar-EG', { hour: 'numeric', minute: 'numeric' }).format(dateObj);
-        const dateStr = new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(dateObj);
-        const relativeTime = getRelativeTime(photoData.timestamp);
-        
-        modalDate.innerHTML = `
-            <span class="date-relative">${relativeTime}</span>
-            <span class="date-details">${timeStr} | ${dateStr}</span>
-        `;
-    } else if (modalDate) {
-         modalDate.innerHTML = '';
-    }
-
-    imageModal.classList.add('active');
 };
+
+// دالة منفصلة لفتح المودال
+const openImageModal = (photoData) => {
+    document.body.classList.add('no-scroll');
+    currentPhotoIndex = allPhotosData.findIndex(p => p.id === photoData.id);
+    if (currentPhotoIndex === -1) currentPhotoIndex = 0;
+    updateModalContent(photoData);
+    imageModal.classList.add('active');
+    
+    // إظهار إرشادات التمرير لمدة قصيرة عند الفتح
+    if (swipeInstruction) {
+        swipeInstruction.style.animation = 'none';
+        swipeInstruction.offsetHeight; /* trigger reflow */
+        swipeInstruction.style.animation = 'hintFade 4s forwards';
+    }
+    
+    // التأكد من أن العرض التلقائي متوقف عند الفتح اليدوي
+    stopSlideshow();
+};
+
+// منطق التنقل الدائري (Circular Navigation)
+const navigateGallery = (direction) => {
+    if (allPhotosData.length <= 1) return;
+
+    if (direction === 'next') {
+        // إذا وصلنا للنهاية، نعود للبداية (Modulo Operator)
+        currentPhotoIndex = (currentPhotoIndex + 1) % allPhotosData.length;
+        updateModalContent(allPhotosData[currentPhotoIndex]);
+    } else if (direction === 'prev') {
+        // إذا كنا في البداية، نذهب للنهاية
+        currentPhotoIndex = (currentPhotoIndex - 1 + allPhotosData.length) % allPhotosData.length;
+        updateModalContent(allPhotosData[currentPhotoIndex]);
+    }
+};
+
+// تفعيل أزرار التنقل عند النقر
+if (prevBtn) prevBtn.addEventListener('click', (e) => {
+    e.stopPropagation(); // منع إغلاق النافذة
+    navigateGallery('prev');
+});
+
+if (nextBtn) nextBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    navigateGallery('next');
+});
+
+// أحداث اللمس للسحب
+imageModal.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
+imageModal.addEventListener('touchend', (e) => { 
+    touchEndX = e.changedTouches[0].screenX;
+    if (modalImage.classList.contains('zoomed')) return;
+    if (touchEndX < touchStartX - 50) navigateGallery('next');
+    if (touchEndX > touchStartX + 50) navigateGallery('prev');
+}, {passive: true});
+
+// أحداث لوحة المفاتيح
+document.addEventListener('keydown', (e) => {
+    if (!imageModal.classList.contains('active')) return;
+    if (e.key === 'ArrowLeft') navigateGallery('next');
+    if (e.key === 'ArrowRight') navigateGallery('prev');
+    if (e.key === 'Escape') closeModal();
+});
+
+// --- منطق العرض التلقائي (Slideshow) ---
+const startSlideshow = () => {
+    if (slideshowInterval) return;
+    
+    // تغيير أيقونة الزر إلى "إيقاف مؤقت"
+    slideshowBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+    slideshowBtn.classList.add('playing');
+    
+    // تحريك الصورة كل 3 ثواني
+    slideshowInterval = setInterval(() => {
+        navigateGallery('next');
+    }, slideshowSpeed); // استخدام متغير السرعة
+};
+
+const stopSlideshow = () => {
+    if (!slideshowInterval) return;
+    
+    clearInterval(slideshowInterval);
+    slideshowInterval = null;
+    
+    // إعادة الأيقونة إلى "تشغيل"
+    slideshowBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+    slideshowBtn.classList.remove('playing');
+};
+
+if (slideshowBtn) {
+    slideshowBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (slideshowInterval) stopSlideshow();
+        else startSlideshow();
+    });
+}
+
+// --- منطق التحكم في سرعة العرض ---
+if (slideshowSpeedBtn) {
+    slideshowSpeedBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        slideshowSpeedMenu.classList.toggle('active');
+    });
+
+    document.querySelectorAll('.speed-option').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            slideshowSpeed = parseInt(btn.dataset.speed, 10);
+            
+            // تحديث الحالة المرئية للزر النشط
+            document.querySelector('.speed-option.active').classList.remove('active');
+            btn.classList.add('active');
+            slideshowSpeedMenu.classList.remove('active');
+
+            // إذا كان العرض يعمل، أعد تشغيله بالسرعة الجديدة
+            if (slideshowInterval) {
+                stopSlideshow();
+                startSlideshow();
+            }
+        });
+    });
+}
 
 // حدث التمرير للتحميل اللانهائي
 window.addEventListener('scroll', () => {
@@ -648,6 +777,10 @@ document.addEventListener('click', (e) => {
     if (!sortMenu.contains(e.target) && e.target !== sortMenuBtn) {
         sortMenu.classList.remove('active');
     }
+    // إغلاق قائمة السرعة عند النقر خارجها
+    if (slideshowSpeedMenu && !slideshowSpeedMenu.contains(e.target) && e.target !== slideshowSpeedBtn) {
+        slideshowSpeedMenu.classList.remove('active');
+    }
 });
 
 // --- التحكم في قائمة الهيدر المنسدلة ---
@@ -708,7 +841,10 @@ clearPreviewBtn.addEventListener('click', hidePreview);
 
 // إغلاق الـ Modal
 const closeModal = () => {
+    stopSlideshow(); // إيقاف العرض التلقائي عند الإغلاق
     imageModal.classList.remove('active');
+    // إعادة تفعيل التمرير في الصفحة
+    document.body.classList.remove('no-scroll');
 };
 
 // ميزة التكبير عند النقر المزدوج
@@ -801,7 +937,7 @@ const showNotification = (message) => {
 closeModalBtn.addEventListener('click', closeModal);
 imageModal.addEventListener('click', (e) => {
     // إغلاق النافذة فقط عند الضغط على الخلفية السوداء نفسها وليس على الصورة
-    if (e.target === imageModal) {
+    if (e.target.classList.contains('modal-viewer')) {
         closeModal();
     }
     // إعادة ضبط التكبير عند إغلاق النافذة (اختياري ولكنه مفضل)
@@ -817,7 +953,6 @@ window.deleteAllPhotos = () => {
         remove(ref(db, 'photos')).then(() => alert("تم تنظيف المعرض بالكامل!"));
     }
 };
-
 // --- منطق تثبيت التطبيق (PWA) ---
 let deferredPrompt;
 

@@ -26,6 +26,13 @@
     100% { transform: scale(1); }
 }
 
+@keyframes hintFade {
+    0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    20% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    80% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(0); }
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -44,6 +51,12 @@ body {
     position: relative;
     min-height: 100vh;
     overflow-x: hidden;
+}
+
+/* كلاس لمنع التمرير في الخلفية عند فتح الصورة */
+body.no-scroll {
+    overflow: hidden;
+    touch-action: none; /* يمنع التفاعل مع الخلفية في شاشات اللمس */
 }
 
 /* حركة انسياب الماء */
@@ -694,9 +707,9 @@ input[type="file"] {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(10, 10, 15, 0.8);
-    backdrop-filter: blur(8px); /* تقليل التمويه لتحسين الأداء */
-    -webkit-backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.96); /* خلفية داكنة جداً للتركيز التام */
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -711,28 +724,39 @@ input[type="file"] {
     visibility: visible;
 }
 
+.modal-viewer {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    width: 100%;
+    padding: 0 10px;
+    transform: scale(0.95); 
+    opacity: 0;
+    transition: transform 0.2s cubic-bezier(0.1, 0.9, 0.2, 1), opacity 0.2s ease; /* حركة فورية واحترافية */
+    will-change: transform, opacity;
+}
+
+.modal-overlay.active .modal-viewer {
+    transform: scale(1);
+    opacity: 1;
+}
+
 .modal-content {
     position: relative;
-    width: 95vw;
+    width: 100%;
     height: auto; /* ارتفاع تلقائي حسب المحتوى */
     max-height: 90vh;
     max-width: 600px; /* لا تصبح عريضة جداً على الكمبيوتر */
     background: rgba(20, 20, 25, 0.95); /* خلفية داكنة للنافذة نفسها */
-    /* تعديل الحركة لتكون منبثقة من المنتصف مثل التطبيقات */
-    transform: scale(0.95); 
-    opacity: 0;
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease; /* حركة ارتدادية سريعة */
     display: flex;
-    flex-direction: column; 
-    overflow: hidden; /* منع المحتوى من الخروج عن الإطار */
+    flex-direction: column;
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    will-change: transform, opacity; /* تحسين الأداء */
-}
-
-.modal-overlay.active .modal-content {
-    transform: scale(1);
-    opacity: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    /* تم إزالة overflow: hidden للسماح للقوائم بالظهور خارج الإطار */
 }
 
 /* --- 1. رأس النافذة (Header) --- */
@@ -745,6 +769,8 @@ input[type="file"] {
     justify-content: space-between;
     align-items: center;
     height: 60px;
+    border-top-left-radius: 20px; /* تطبيق الحواف الدائرية على الهيدر */
+    border-top-right-radius: 20px;
 }
 
 .modal-date-container {
@@ -757,6 +783,50 @@ input[type="file"] {
     display: flex;
     gap: 10px;
 }
+
+.speed-control-container {
+    position: relative;
+}
+
+.speed-menu-popup {
+    position: absolute;
+    bottom: 120%;
+    right: 50%;
+    transform: translateX(50%);
+    background: rgba(40, 40, 45, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 5px;
+    display: flex; /* Always flex for layout */
+    flex-direction: column;
+    gap: 4px;
+    z-index: 1100;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    /* Animation properties */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(50%) translateY(10px); /* Start from a lower position */
+    transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.2s;
+}
+
+.speed-menu-popup.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(50%) translateY(0); /* Move to final position */
+}
+
+.speed-option {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 8px 15px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: 0.2s;
+}
+.speed-option:hover { background: rgba(255, 255, 255, 0.1); color: white; }
+.speed-option.active { background: var(--primary-color); color: white; }
 
 .action-btn {
     background: rgba(255, 255, 255, 0.1);
@@ -771,6 +841,12 @@ input[type="file"] {
     cursor: pointer;
     transition: 0.2s;
     text-decoration: none;
+}
+
+/* تغيير أيقونة زر التشغيل عند التفعيل */
+.action-btn.playing {
+    background: var(--primary-color);
+    color: white;
 }
 
 .action-btn:hover {
@@ -795,6 +871,45 @@ input[type="file"] {
     min-height: 0; /* مهم جداً لعمل Flexbox بشكل صحيح */
     border-bottom-left-radius: 20px;
     border-bottom-right-radius: 20px;
+}
+
+/* تصميم أزرار التنقل الجانبية */
+.nav-btn {
+    position: static;
+    transform: none;
+    background: rgba(0, 0, 0, 0.4);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    z-index: 100;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(4px);
+    flex-shrink: 0;
+    display: none; /* إخفاؤها افتراضياً في الموبايل */
+}
+
+.nav-btn:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.1); }
+
+/* تصميم إرشادات التمرير */
+.swipe-instruction {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    padding: 8px 16px;
+    border-radius: 20px;
+    color: white;
+    font-size: 0.9rem;
+    pointer-events: none; /* للسماح بالنقر من خلاله */
+    z-index: 50;
+    opacity: 0; /* مخفي افتراضياً */
 }
 
 /* إخفاء شريط التمرير للصورة للحفاظ على الجمالية */
@@ -862,6 +977,13 @@ input[type="file"] {
     .gallery-grid {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* عمودين للموبايل لعرض أفضل */
         gap: 15px; /* تقليل المسافات */
+    }
+}
+
+/* إظهار أزرار التنقل الجانبية فقط على الشاشات الكبيرة */
+@media (min-width: 800px) {
+    .nav-btn {
+        display: flex;
     }
 }
 
