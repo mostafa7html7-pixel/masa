@@ -634,6 +634,8 @@ const updateCardData = (card, photoData, updateClickEvent = false) => {
 let currentPhotoIndex = 0;
 let touchStartX = 0;
 let touchEndX = 0;
+let touchStartY = 0; // إضافة لتتبع بداية السحب العمودي
+let touchEndY = 0;   // إضافة لتتبع نهاية السحب العمودي
 let slideshowInterval = null; // متغير لتخزين مؤقت العرض التلقائي
 let slideshowSpeed = 3000; // سرعة العرض الافتراضية (3 ثواني)
 let currentScale = 1; // متغير لتخزين نسبة التكبير الحالية
@@ -780,10 +782,13 @@ imageModal.addEventListener('touchstart', (e) => {
             e.touches[0].pageX - e.touches[1].pageX,
             e.touches[0].pageY - e.touches[1].pageY
         );
-    } else {
+    } else if (e.touches.length === 1) { // فقط إصبع واحد
         // تسجيل بداية السحب العادي (Swipe)
-        touchStartX = e.changedTouches[0].screenX;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY; 
     }
+    // إذا كانت الصورة مكبرة، نمنع التمرير الافتراضي للمتصفح
+    if (modalImage.classList.contains('zoomed')) e.preventDefault();
 }, {passive: false});
 
 imageModal.addEventListener('touchmove', (e) => {
@@ -801,11 +806,32 @@ imageModal.addEventListener('touchmove', (e) => {
         modalImage.style.transform = `scale(${newScale})`;
         
         // تحديث حالة الزوم لمنع السحب
-        if (newScale > 1.1) modalImage.classList.add('zoomed');
+        if (newScale > 1.1) modalImage.classList.add('zoomed'); // إضافة كلاس zoomed إذا تم التكبير
+    } else if (e.touches.length === 1) {
+        if(modalImage.classList.contains('zoomed')) {
+        e.preventDefault(); // منع تمرير الخلفية عند تحريك صورة مكبرة
+        } else {
+            // منطق السحب لأسفل للإغلاق (Visual Feedback)
+            const touch = e.touches[0];
+            const deltaY = touch.clientY - touchStartY;
+            const deltaX = touch.clientX - touchStartX;
+
+            // إذا كان السحب لأسفل بشكل عمودي (وليس جانبي)
+            if (deltaY > 0 && Math.abs(deltaY) > Math.abs(deltaX)) {
+                e.preventDefault();
+                modalImage.style.transition = 'none'; // إلغاء الحركة لجعل السحب فوري
+                // تحريك الصورة وتصغيرها قليلاً لإعطاء إيحاء بالسحب
+                const scale = Math.max(0.6, 1 - deltaY / 800);
+                modalImage.style.transform = `translateY(${deltaY}px) scale(${scale})`;
+            }
+        }
     }
 }, {passive: false});
 
 imageModal.addEventListener('touchend', (e) => {
+    // استعادة الحركة الناعمة
+    modalImage.style.transition = 'transform 0.3s ease';
+
     if (isPinching && e.touches.length < 2) {
         isPinching = false;
         // حفظ نسبة التكبير الحالية للمرة القادمة
@@ -819,11 +845,33 @@ imageModal.addEventListener('touchend', (e) => {
             modalImage.style.transform = 'scale(1)';
             modalImage.classList.remove('zoomed');
         }
-    } else if (!isPinching && !modalImage.classList.contains('zoomed')) {
-        // منطق السحب (Swipe) فقط إذا لم يكن هناك تكبير
-        touchEndX = e.changedTouches[0].screenX;
-        if (touchEndX < touchStartX - 50) navigateGallery('next');
-        if (touchEndX > touchStartX + 50) navigateGallery('prev');
+    } else if (!isPinching && !modalImage.classList.contains('zoomed')) { // إذا لم يكن هناك قرص ولم تكن الصورة مكبرة
+        touchEndX = e.changedTouches[0].clientX;
+        touchEndY = e.changedTouches[0].clientY;
+
+        const deltaX = touchEndX - touchStartX;
+        const deltaY = touchEndY - touchStartY;
+        const SWIPE_THRESHOLD = 60; // مسافة السحب بالبكسل لتفعيل الإجراء
+
+        // التحقق من السحب لأسفل للإغلاق
+        if (deltaY > 120 && Math.abs(deltaY) > Math.abs(deltaX)) {
+            closeModal();
+            // إعادة تعيين الصورة بعد إغلاق النافذة
+            setTimeout(() => { modalImage.style.transform = ''; }, 300);
+            return;
+        }
+        
+        // إعادة الصورة لمكانها إذا لم يتم الإغلاق (Snap back)
+        modalImage.style.transform = '';
+
+        // تحديد ما إذا كان السحب أفقياً أم عمودياً بشكل أساسي
+        if (Math.abs(deltaX) > Math.abs(deltaY)) { // سحب أفقي
+            if (deltaX < -SWIPE_THRESHOLD) { // سحب لليسار (التالي)
+                navigateGallery('next');
+            } else if (deltaX > SWIPE_THRESHOLD) { // سحب لليمين (السابق)
+                navigateGallery('prev');
+            }
+        }
     }
 }, {passive: false});
 
