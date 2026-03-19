@@ -48,6 +48,7 @@
     -webkit-tap-highlight-color: transparent;
     /* إزالة الإطار الافتراضي عند التركيز */
     outline: none;
+    -webkit-font-smoothing: antialiased; /* تحسين نعومة الخطوط */
 }
 
 body {
@@ -57,6 +58,7 @@ body {
     position: relative;
     min-height: 100vh;
     overflow-x: hidden;
+    overscroll-behavior-y: none; /* يمنع تأثير المطاط عند نهاية الصفحة لتحسين الأداء */
 }
 
 /* كلاس لمنع التمرير في الخلفية عند فتح الصورة */
@@ -69,12 +71,16 @@ body.no-scroll {
 body::before {
     content: "";
     position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
+    inset: 0; /* يثبت العنصر في جميع الزوايا */
+    height: 100dvh; /* ارتفاع ديناميكي للموبايل */
     background: repeating-linear-gradient(180deg, transparent 0, rgba(67, 97, 238, 0.05) 1px, transparent 3px);
     background-size: 100% 50px;
     animation: flowWater 3s linear infinite, changeColor 24s infinite linear;
     pointer-events: none;
     z-index: -1;
+    /* تحسينات الأداء القصوى (GPU) */
+    transform: translate3d(0, 0, 0);
+    will-change: background-position, filter;
     mask-image: linear-gradient(to bottom, black 0%, transparent 90%);
 }
 
@@ -82,13 +88,16 @@ body::before {
 body::after {
     content: "";
     position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
+    inset: 0; /* يثبت العنصر في جميع الزوايا */
+    height: 100dvh; /* ارتفاع ديناميكي للموبايل */
     background-color: #1a1a2e; /* لون كحلي غامق للخلفية */
     /* تأثير النافورة المنسكبة: تدرج إشعاعي من الأعلى ينسكب للأسفل */
     background-image: 
         radial-gradient(circle at 50% -10%, #9b59b6 0%, transparent 50%),
         linear-gradient(to bottom, transparent 0%, #1a1a2e 100%);
     z-index: -2;
+    /* تحسينات الأداء القصوى (GPU) */
+    transform: translate3d(0, 0, 0);
     animation: changeColor 24s infinite linear;
 }
 
@@ -349,6 +358,27 @@ input[type="file"] {
     box-shadow: 0 20px 50px -10px rgba(142, 68, 173, 0.7);
 }
 
+/* تأثير الفلاش القوي عند نجاح الرفع */
+@keyframes flashGlow {
+    0% { box-shadow: 0 10px 40px -10px rgba(142, 68, 173, 0.5); }
+    15% { box-shadow: 0 0 100px 30px rgba(46, 204, 113, 1), 0 0 50px rgba(255, 255, 255, 0.8); }
+    100% { box-shadow: 0 10px 40px -10px rgba(142, 68, 173, 0.5); }
+}
+
+@keyframes flashBackground {
+    0% { background: rgba(20, 20, 30, 0.95); }
+    15% { background: rgba(46, 204, 113, 0.9); }
+    100% { background: rgba(20, 20, 30, 0.95); }
+}
+
+.upload-container.flash-active {
+    animation: flashGlow 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.upload-container.flash-active::after {
+    animation: flashBackground 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .sort-trigger-btn {
     background: transparent;
     border: none;
@@ -606,9 +636,9 @@ input[type="file"] {
     flex-direction: column;
     /* --- تحسينات السرعة القصوى (Performance Boost) --- */
     content-visibility: auto; /* يمنع المتصفح من رسم العناصر خارج الشاشة */
-    contain-intrinsic-size: 1px 300px; /* تقدير للحجم لمنع القفز */
+    contain-intrinsic-size: 300px; /* تقدير للحجم لمنع القفز */
     contain: layout paint; /* عزل العنصر ليسهل على المتصفح معالجته */
-    transform: translateZ(0); /* تفعيل تسريع الهاردوير (GPU) */
+    transform: translate3d(0, 0, 0); /* تفعيل تسريع الهاردوير (GPU) بشكل أقوى */
 }
 
 /* زر الحذف */
@@ -754,32 +784,37 @@ input[type="file"] {
 /* تصميم التاريخ الاحترافي */
 .card-date {
     position: absolute;
-    bottom: 10px;
-    left: 10px; /* في الزاوية اليسرى السفلية */
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    padding: 4px 10px;
-    border-radius: 12px;
+    top: 0;
+    left: 0;
+    width: 100%;
+    /* تحويل التاريخ لشريط علوي متدرج شفاف */
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    padding: 10px 15px 35px; /* زيادة المساحة السفلية للتدرج */
+    border-radius: var(--radius) var(--radius) 0 0;
     pointer-events: none; /* للسماح بالنقر من خلاله */
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: none;
     z-index: 5;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: flex-end; /* محاذاة النص لليسار (عكس RTL) لتجنب زر الحذف */
     line-height: 1.4;
+    bottom: auto;
 }
 
 .date-relative {
     font-size: 0.75rem;
     font-weight: 700;
     color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.6);
 }
 
 .date-details {
     font-size: 0.65rem;
     color: rgba(255, 255, 255, 0.8);
     white-space: nowrap;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.6);
 }
 
 /* Modal / Lightbox Styles */
@@ -1091,6 +1126,24 @@ input[type="file"] {
     .gallery-grid {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* عمودين للموبايل لعرض أفضل */
         gap: 15px; /* تقليل المسافات */
+    }
+
+    /* تخصيص الشريط العلوي للموبايل */
+    .card-date {
+        top: 0;
+        left: 0;
+        max-width: 100%;
+        padding: 8px 10px 25px;
+    }
+
+    /* تصغير النصوص لتناسب الكروت الصغيرة */
+    .date-relative {
+        font-size: 0.7rem;
+    }
+    
+    .date-details {
+        font-size: 0.6rem;
+        white-space: normal; /* السماح بالتفاف النص */
     }
 }
 
@@ -1620,6 +1673,24 @@ input[type="file"] {
     background: rgba(239, 35, 60, 0.2);
     color: #ef233c;
 }
+
+/* زر حذف المستخدم للمراقب */
+.admin-delete-user-btn {
+    background: rgba(239, 35, 60, 0.15);
+    color: #ef233c;
+    border: 1px solid rgba(239, 35, 60, 0.3);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    justify-content: center;
+    transition: 0.2s;
+}
+.admin-delete-user-btn:hover { background: #ef233c; color: white; }
 
 @keyframes loadingMove {
     0% { left: -40%; }

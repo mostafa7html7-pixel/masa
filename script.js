@@ -75,6 +75,7 @@ const installPwaBtn = document.getElementById('install-pwa-btn');
 const notificationsBtn = document.getElementById('enable-notifications-btn');
 const headerSettingsBtn = document.getElementById('header-settings-btn');
 const headerDropdown = document.getElementById('header-dropdown');
+const adminLoginBtn = document.getElementById('admin-login-btn');
 
 
 // عناصر التسجيل
@@ -96,6 +97,10 @@ let shownNotifications = new Set();
 
 // متغير لتخزين بيانات المستخدم المسجل
 let userProfile = JSON.parse(localStorage.getItem('user_profile')) || null;
+
+// متغيرات النظام
+let isAdmin = false; // حالة المراقب
+const CACHE_KEY = 'galleria_photos_cache'; // مفتاح التخزين المحلي
 
 // تحديث نص عدد الصور المحددة
 fileInput.addEventListener('change', () => {
@@ -135,7 +140,7 @@ const addWatermark = (file) => {
                 let height = img.height;
 
                 // تحسين السرعة: تقليل أبعاد الصورة إذا كانت كبيرة جداً (للتسريع وتقليل حجم البيانات)
-                const MAX_SIZE = 1280; 
+                const MAX_SIZE = 1024; // تقليل الأبعاد إلى 1024 لسرعة "صاروخية" في الرفع والعرض
                 if (width > height) {
                     if (width > MAX_SIZE) {
                         height *= MAX_SIZE / width;
@@ -191,7 +196,7 @@ const addWatermark = (file) => {
                 // تحويل الـ canvas إلى Blob بصيغة JPEG مضغوطة لتسريع الرفع
                 canvas.toBlob((blob) => {
                     resolve(blob);
-                }, 'image/jpeg', 0.8);
+                }, 'image/jpeg', 0.7); // ضغط الجودة إلى 70% لتقليل الحجم دون فقدان ملحوظ في الجودة
             };
             img.onerror = reject;
             img.src = e.target.result;
@@ -275,6 +280,13 @@ const handleUpload = async () => {
 
         showStatus(`✅ تم رفع ${uploadedCount} صورة بنجاح!`, false, 5000);
         hidePreview(false); // عدم مسح رسالة النجاح فوراً
+
+        // تفعيل تأثير الفلاش على الحاوية
+        const uploadContainer = document.querySelector('.upload-container');
+        if (uploadContainer) {
+            uploadContainer.classList.add('flash-active');
+            setTimeout(() => uploadContainer.classList.remove('flash-active'), 1000);
+        }
         
     } catch (error) {
         console.error("حدث خطأ في عملية الرفع:", error);
@@ -329,6 +341,30 @@ const BATCH_SIZE = 12; // عدد الصور في كل دفعة
 let lastMaxTimestamp = 0; // لتتبع آخر صورة تم تحميلها ومعرفة الجديد
 let isInitialLoad = true; // لتجنب الإشعارات عند فتح الصفحة لأول مرة
 
+// --- 1. التحميل الفوري من الذاكرة المحلية (Cache) لتسريع العرض ---
+const loadCachedPhotos = () => {
+    const cachedData = localStorage.getItem(CACHE_KEY);
+    if (cachedData) {
+        try {
+            const parsedData = JSON.parse(cachedData);
+            if (Array.isArray(parsedData) && parsedData.length > 0) {
+                allPhotosData = parsedData;
+                // ترتيب مبدئي
+                allPhotosData.sort((a, b) => b.timestamp - a.timestamp);
+                if (totalPhotosCountEl) totalPhotosCountEl.textContent = allPhotosData.length;
+                renderedCount = BATCH_SIZE;
+                renderGallery();
+                console.log("تم تحميل الصور من الذاكرة المحلية بنجاح 🚀");
+            }
+        } catch (e) {
+            console.error("خطأ في قراءة الكاش", e);
+        }
+    }
+};
+
+// استدعاء التحميل من الكاش فوراً
+loadCachedPhotos();
+
 // جلب الصور من Firebase وعرضها في المعرض بشكل لحظي (Realtime) مع ترتيبها حسب الأحدث
 const photosRef = ref(db, 'photos');
 onValue(photosRef, (snapshot) => {
@@ -371,6 +407,9 @@ onValue(photosRef, (snapshot) => {
     } else { // popular
         allPhotosData.sort((a, b) => (b.likes || 0) - (a.likes || 0));
     }
+
+    // --- 2. تحديث الذاكرة المحلية بالبيانات الجديدة ---
+    localStorage.setItem(CACHE_KEY, JSON.stringify(allPhotosData));
 
     // إصلاح: إزالة رسالة "لا توجد صور" إذا كانت موجودة وجاءت بيانات جديدة
     if (galleryDiv.querySelector('p')) {
@@ -455,9 +494,8 @@ const createCard = (photoData) => {
     likeContainer.className = 'like-container';
     imageWrapper.appendChild(likeContainer); // سيتم ملؤها في updateCardData
 
-    // زر الحذف
-    // التحقق من الملكية باستخدام UID القادم من Firebase Auth
-    if (currentUserUid && photoData.ownerUid === currentUserUid) {
+    // زر الحذف (يظهر للمالك أو للمراقب)
+    if ((currentUserUid && photoData.ownerUid === currentUserUid) || isAdmin) {
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-btn';
         deleteBtn.innerHTML = '&times;';
@@ -628,7 +666,7 @@ const updateModalContent = (photoData) => {
         const userWrapper = document.createElement('div');
         userWrapper.className = 'modal-user-wrapper';
         userWrapper.innerHTML = `
-            <img src="${ownerAvatarUrl}" class="modal-owner-avatar" alt="User">
+            <img src="${ownerAvatarUrl}" class="modal-owner-avatar" alt="User" loading="lazy">
             <div class="modal-text-info">
                 <span class="date-relative">${relativeTime}</span>
                 <span class="date-details">${timeStr} | ${dateStr}</span>
@@ -1042,6 +1080,14 @@ if (showUsersBtn) {
                             <span class="status-indicator ${onlineClass}" title="${onlineText}"></span>
                         </div>
                         <div class="user-card-name">${phone}</div>
+                        
+                        ${isAdmin ? `
+                        <button class="admin-delete-user-btn" title="حذف المستخدم (صلاحية مراقب)" onclick="deleteUser('${user.uid}')">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            حذف
+                        </button>
+                        ` : ''}
+
                         <a href="https://wa.me/${waNumber}" target="_blank" class="user-card-whatsapp" title="مراسلة واتساب">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.433-9.89-9.889-9.89-5.452 0-9.887 4.434-9.889 9.891.001 2.23.654 4.28 1.849 5.978l-1.138 4.156 4.274-1.119zM9.266 8.89c-.195-.319-.42-.39-.617-.406-1.238-.13-2.131.23-2.476.925-.344.696-.652 1.39-.891 2.088-.239.696-.213 1.469.041 2.138.255.67.935 1.551 1.051 1.715.115.163.231.321.357.49.564.653 1.215 1.163 1.965 1.599 1.583.906 3.16 1.177 4.525.939 1.11-.193 1.965-.838 2.23-1.85.264-1.01.265-1.855.183-2.013-.082-.158-.319-.24-.617-.407-.297-.167-1.76-.867-2.031-.967-.271-.099-.47-.149-.666.149-.196.297-.767.966-.94 1.164-.173.199-.347.223-.617.074-.27-.149-1.13-1.024-2.12-1.864-.82-.695-1.41-1.56-1.59-1.816-.18-.255-.01-1.03.11-1.265z"></path></svg>
                              مراسلة واتساب
@@ -1081,6 +1127,19 @@ if (usersModalCloseBtn) {
         document.body.classList.remove('no-scroll');
     });
 }
+
+// دالة حذف المستخدم (للمراقبين فقط)
+window.deleteUser = (uid) => {
+    if (!isAdmin) return;
+    if (confirm("هل أنت متأكد من حذف هذا المستخدم نهائياً؟")) {
+        remove(ref(db, `users/${uid}`))
+            .then(() => {
+                alert("تم حذف المستخدم بنجاح.");
+                document.getElementById('show-users-btn').click(); // تحديث القائمة
+            })
+            .catch(err => alert("حدث خطأ: " + err.message));
+    }
+};
 
 // --- تحسين الأداء: دالة كبح (Throttle) ---
 // تمنع تنفيذ الكود مئات المرات عند التمرير، وتنفذه مرة واحدة كل فترة زمنية
@@ -1179,6 +1238,25 @@ if (headerSettingsBtn && headerDropdown) {
     document.addEventListener('click', (e) => {
         if (!headerDropdown.contains(e.target) && e.target !== headerSettingsBtn) {
             headerDropdown.classList.remove('active');
+        }
+    });
+}
+
+// --- منطق المراقب (Admin) ---
+if (adminLoginBtn) {
+    adminLoginBtn.addEventListener('click', () => {
+        const password = prompt("الرجاء إدخال كلمة مرور المراقب:");
+        // كلمة المرور الافتراضية هنا هي 123456
+        if (password === "123456") {
+            isAdmin = true;
+            alert("✅ تم تفعيل وضع المراقب بنجاح!\nيمكنك الآن حذف أي صورة أو مستخدم.");
+            adminLoginBtn.querySelector('span').textContent = "مراقب (نشط)";
+            adminLoginBtn.style.color = "#2ecc71";
+            // إعادة رسم المعرض لإظهار أزرار الحذف
+            galleryDiv.innerHTML = ''; 
+            renderGallery();
+        } else if (password !== null) {
+            alert("❌ كلمة المرور غير صحيحة.");
         }
     });
 }
